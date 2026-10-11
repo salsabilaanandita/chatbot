@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot AI - Gemini AI Chatbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            border: 'hsl(var(--border))',
+            input: 'hsl(var(--input))',
+            ring: 'hsl(var(--ring))',
+            background: 'hsl(var(--background))',
+            foreground: 'hsl(var(--foreground))',
+            primary: {
+              DEFAULT: 'hsl(var(--primary))',
+              foreground: 'hsl(var(--primary-foreground))',
+            },
+            secondary: {
+              DEFAULT: 'hsl(var(--secondary))',
+              foreground: 'hsl(var(--secondary-foreground))',
+            },
+            muted: {
+              DEFAULT: 'hsl(var(--muted))',
+              foreground: 'hsl(var(--muted-foreground))',
+            },
+            accent: {
+              DEFAULT: 'hsl(var(--accent))',
+              foreground: 'hsl(var(--accent-foreground))',
+            },
+            card: {
+              DEFAULT: 'hsl(var(--card))',
+              foreground: 'hsl(var(--card-foreground))',
+            },
+          },
+          borderRadius: {
+            lg: 'var(--radius)',
+            md: 'calc(var(--radius) - 2px)',
+            sm: 'calc(var(--radius) - 4px)',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <!-- Marked.js untuk Markdown & DOMPurify untuk sanitasi keamanan -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body
+  class="bg-background text-foreground font-sans h-screen w-screen overflow-hidden flex transition-colors duration-200">
+
+  <!-- Mobile Backdrop Overlay -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 hidden transition-opacity"></div>
+
+  <!-- ====================================================================
+         SIDEBAR (Ala Gemini: New Chat, Search History, Sessions List)
+         ==================================================================== -->
+  <aside id="sidebar"
+    class="fixed md:static inset-y-0 left-0 z-40 w-72 sm:w-80 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-in-out transform -translate-x-full md:translate-x-0 shrink-0 select-none">
+    <!-- Sidebar Header -->
+    <div class="p-4 border-b border-border/80 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 8V4H8"></path>
+            <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+            <path d="M2 14h2"></path>
+            <path d="M20 14h2"></path>
+            <path d="M15 13v2"></path>
+            <path d="M9 13v2"></path>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-tight leading-none text-foreground">Chatbot AI</h2>
+          <span class="text-[11px] text-muted-foreground">AI Study Assistant</span>
+        </div>
+      </div>
+
+      <!-- Mobile Close Sidebar Button -->
+      <button id="close-sidebar-btn" type="button"
+        class="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        title="Tutup Menu">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Action Button: Chat Baru (New Chat) -->
+    <div class="p-3">
+      <button id="new-chat-btn" type="button"
+        class="w-full flex items-center gap-2.5 rounded-xl bg-secondary hover:bg-accent text-secondary-foreground hover:text-accent-foreground px-3.5 py-2.5 text-xs font-medium border border-border transition-all shadow-sm group">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="group-hover:rotate-90 transition-transform">
+          <path d="M5 12h14"></path>
+          <path d="M12 5v14"></path>
+        </svg>
+        <span class="flex-1 text-left">Percakapan Baru</span>
+        <span
+          class="text-[10px] text-muted-foreground bg-background border border-border/80 px-1.5 py-0.5 rounded font-mono">Baru</span>
+      </button>
+    </div>
+
+    <!-- Search History Box (Histori Searching) -->
+    <div class="px-3 pb-2">
+      <div class="relative flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          class="absolute left-2.5 text-muted-foreground pointer-events-none">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+        <input type="text" id="search-history-input" placeholder="Cari histori percakapan..."
+          class="w-full bg-background border border-input rounded-lg pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all" />
+      </div>
+    </div>
+
+    <!-- Section Title -->
+    <div
+      class="px-4 py-1.5 flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+      <span>Riwayat Percakapan</span>
+      <span id="history-count" class="font-mono text-[10px] lowercase text-muted-foreground/80">0 sesi</span>
+    </div>
+
+    <!-- Sessions History List -->
+    <div id="history-list" class="flex-1 overflow-y-auto px-2 py-1 space-y-1">
+      <!-- Rendered dynamically via JavaScript -->
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-3 border-t border-border/80 bg-card/60 flex items-center justify-between">
+      <button id="clear-all-history-btn" type="button"
+        class="text-[11px] text-muted-foreground hover:text-destructive flex items-center gap-1.5 px-2 py-1 rounded hover:bg-accent transition-colors"
+        title="Hapus semua riwayat">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18"></path>
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+        </svg>
+        <span>Bersihkan Histori</span>
+      </button>
+
+      <span class="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+        <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        Ready
+      </span>
+    </div>
+  </aside>
+
+  <!-- ====================================================================
+         MAIN CHAT VIEW (Responsive Container, Messages Stream, Floating Composer)
+         ==================================================================== -->
+  <main class="flex-1 flex flex-col h-full min-w-0 bg-background relative overflow-hidden">
+
+    <!-- Top Navigation Header -->
+    <header
+      class="h-14 px-4 sm:px-6 border-b border-border/80 flex items-center justify-between bg-card/40 backdrop-blur sticky top-0 z-20 shrink-0">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Toggle Sidebar Button (Mobile Hamburger & Desktop Collapse) -->
+        <button id="toggle-sidebar-btn" type="button"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground text-foreground transition-colors shadow-sm"
+          title="Buka/Tutup Sidebar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+            <path d="M9 3v18"></path>
+          </svg>
+        </button>
+
+        <!-- App Title & Gemini Badge -->
+        <div class="flex items-center gap-2">
+          <h1 id="current-chat-title"
+            class="font-semibold text-sm sm:text-base text-foreground truncate max-w-[180px] sm:max-w-xs md:max-w-sm">
+            Chatbot AI
+          </h1>
+          <span
+            class="hidden sm:inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground bg-secondary/50">
+            Gemini 3.5 Flash-Lite (Fast)
+          </span>
+        </div>
+      </div>
+
+      <!-- Header Actions: Dark Mode & Reset / New Chat -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Dark Mode Toggle Button -->
+        <button type="button" id="theme-toggle-btn" title="Ganti Tema Gelap / Terang"
+          class="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 w-9 text-sm font-medium transition-colors shadow-sm">
+          <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            class="hidden">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="m4.93 4.93 1.41 1.41"></path>
+            <path d="m17.66 17.66 1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="m6.34 17.66-1.41 1.41"></path>
+            <path d="m19.07 4.93-1.41 1.41"></path>
+          </svg>
+          <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>
+        </button>
+
+        <!-- Top New Chat Shortcut -->
+        <button type="button" id="top-new-chat-btn" title="Mulai percakapan baru"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground px-3 h-9 text-xs font-medium transition-colors shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"></path>
+            <path d="M12 5v14"></path>
+          </svg>
+          <span class="hidden sm:inline">Baru</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Chat Scrollable Body -->
+    <div id="chat-box" class="flex-1 overflow-y-auto px-3 sm:px-6 py-6 scroll-smooth">
+      <div class="max-w-3xl mx-auto w-full flex flex-col space-y-5">
+
+        <!-- Welcoming Banner & Suggestion Chips (Visible on empty chat) -->
+        <div id="suggestions-box" class="pt-4 pb-6 space-y-6">
+          <div class="space-y-1.5">
+            <h2
+              class="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-900 dark:from-zinc-100 dark:via-zinc-300 dark:to-zinc-100 bg-clip-text text-transparent">
+              Halo! Mau belajar apa hari ini?
+            </h2>
+            <p class="text-xs sm:text-sm text-muted-foreground">
+              Pilih topik di bawah atau ketik pertanyaanmu secara langsung untuk memulai.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              class="suggestion-chip text-left p-3.5 rounded-xl border border-border bg-card hover:bg-accent/60 hover:border-ring/30 transition-all text-xs group shadow-sm flex flex-col gap-2"
+              data-prompt="Jelaskan konsep hukum gravitasi Newton secara santai dan beri analogi sehari-hari.">
+              <div class="flex items-center gap-2">
+                <div class="h-6 w-6 rounded-md bg-secondary text-foreground flex items-center justify-center shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="2"></circle>
+                    <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(45 12 12)"></ellipse>
+                    <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-45 12 12)"></ellipse>
+                  </svg>
+                </div>
+                <span class="font-medium text-foreground group-hover:text-primary text-xs sm:text-sm">Hukum Gravitasi
+                  Newton</span>
+              </div>
+              <span class="text-muted-foreground text-[11px] leading-relaxed">Penjelasan bertahap + analogi santai
+                sehari-hari</span>
+            </button>
+
+            <button
+              class="suggestion-chip text-left p-3.5 rounded-xl border border-border bg-card hover:bg-accent/60 hover:border-ring/30 transition-all text-xs group shadow-sm flex flex-col gap-2"
+              data-prompt="Bagaimana tips membuat kerangka esai yang rapi dan menarik? Berikan langkah-langkahnya.">
+              <div class="flex items-center gap-2">
+                <div class="h-6 w-6 rounded-md bg-secondary text-foreground flex items-center justify-center shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                  </svg>
+                </div>
+                <span class="font-medium text-foreground group-hover:text-primary text-xs sm:text-sm">Membuat Kerangka
+                  Esai</span>
+              </div>
+              <span class="text-muted-foreground text-[11px] leading-relaxed">Struktur tulisan akademis, argumen &
+                opini</span>
+            </button>
+
+            <button
+              class="suggestion-chip text-left p-3.5 rounded-xl border border-border bg-card hover:bg-accent/60 hover:border-ring/30 transition-all text-xs group shadow-sm flex flex-col gap-2"
+              data-prompt="Jelaskan perbedaan fotosintesis reaksi terang dan reaksi gelap dalam biologi.">
+              <div class="flex items-center gap-2">
+                <div class="h-6 w-6 rounded-md bg-secondary text-foreground flex items-center justify-center shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+                  </svg>
+                </div>
+                <span class="font-medium text-foreground group-hover:text-primary text-xs sm:text-sm">Reaksi
+                  Fotosintesis</span>
+              </div>
+              <span class="text-muted-foreground text-[11px] leading-relaxed">Biologi sel, proses kloroplas &
+                perbedaannya</span>
+            </button>
+
+            <button
+              class="suggestion-chip text-left p-3.5 rounded-xl border border-border bg-card hover:bg-accent/60 hover:border-ring/30 transition-all text-xs group shadow-sm flex flex-col gap-2"
+              data-prompt="Bantu jelaskan konsep dasar aljabar dan berikan 1 contoh soal serta penyelesaiannya.">
+              <div class="flex items-center gap-2">
+                <div class="h-6 w-6 rounded-md bg-secondary text-foreground flex items-center justify-center shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="16" height="20" x="4" y="2" rx="2"></rect>
+                    <line x1="8" x2="16" y1="6" y2="6"></line>
+                    <line x1="16" x2="16" y1="14" y2="18"></line>
+                    <path d="M8 10h.01"></path>
+                    <path d="M12 10h.01"></path>
+                    <path d="M16 10h.01"></path>
+                    <path d="M8 14h.01"></path>
+                    <path d="M12 14h.01"></path>
+                    <path d="M8 18h.01"></path>
+                    <path d="M12 18h.01"></path>
+                  </svg>
+                </div>
+                <span class="font-medium text-foreground group-hover:text-primary text-xs sm:text-sm">Konsep Dasar
+                  Aljabar</span>
+              </div>
+              <span class="text-muted-foreground text-[11px] leading-relaxed">Variabel, konstanta & latihan soal
+                terbimbing</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Messages Container -->
+        <div id="messages-container" class="space-y-4">
+          <!-- Messages will be appended here -->
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Floating Bottom Composer (Ala Gemini & Shadcn) -->
+    <footer class="p-3 sm:p-5 bg-gradient-to-t from-background via-background/95 to-transparent shrink-0">
+      <div class="max-w-3xl mx-auto w-full relative">
+
+        <!-- Floating Stop Button Pill (Tampil saat sedang generate) -->
+        <div id="stop-pill-container" class="hidden absolute -top-10 left-1/2 -translate-x-1/2 z-10">
+          <button id="stop-pill-btn" type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-background/95 hover:bg-destructive/10 hover:border-destructive/40 hover:text-destructive text-foreground text-xs font-medium shadow-md backdrop-blur transition-all active:scale-95 cursor-pointer"
+            title="Hentikan jawaban">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+            </svg>
+            <span>Berhenti Menjawab</span>
+          </button>
+        </div>
+
+        <form id="chat-form" autocomplete="off" class="relative flex flex-col gap-2">
+          <div
+            class="relative flex items-end rounded-xl border border-input bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-ring/40 focus-within:border-ring p-1.5">
+            <textarea id="user-input" rows="1" placeholder="Tanya apa saja seputar pelajaran atau tugasmu..." required
+              class="w-full bg-transparent px-2.5 py-1 text-xs sm:text-sm placeholder:text-muted-foreground text-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none"></textarea>
+
+            <!-- Send Button -->
+            <button type="submit" id="send-btn" title="Kirim pesan"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:pointer-events-none disabled:opacity-50 shadow-sm shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m5 12 7-7 7 7"></path>
+                <path d="M12 19V5"></path>
+              </svg>
+            </button>
+
+            <!-- Stop Button -->
+            <button type="button" id="stop-btn" title="Hentikan jawaban"
+              class="hidden inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all shadow-sm shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect width="16" height="16" x="4" y="4" rx="2"></rect>
+              </svg>
+            </button>
+          </div>
+          <div class="flex items-center justify-between px-1 text-[11px] text-muted-foreground select-none">
+            <span class="hidden sm:inline">Tekan <kbd
+                class="font-mono bg-muted px-1 py-0.5 rounded text-[10px] text-foreground border border-border">Enter</kbd>
+              untuk kirim, <kbd
+                class="font-mono bg-muted px-1 py-0.5 rounded text-[10px] text-foreground border border-border">Shift+Enter</kbd>
+              untuk baris baru</span>
+            <span class="sm:hidden">Chatbot AI siap membantu</span>
+            <span class="truncate ml-auto">Verifikasi jawaban penting</span>
+          </div>
+        </form>
+      </div>
+    </footer>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
