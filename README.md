@@ -11,8 +11,13 @@ Chatbot asisten belajar berbasis **Gemini 2.5 Flash**. Backend memakai Node.js +
 
 ## Fitur
 
-- `POST /api/chat`: percakapan multi-turn (dipakai UI).
-- Endpoint multimodal dari Sesi 2, bisa dites lewat Postman:
+- `POST /api/chat`: percakapan multi-turn & multimodal real-time (mendukung streaming SSE dan input teks, gambar, audio, serta dokumen).
+- **Upload File, Gambar & Audio langsung di UI**:
+  - Tombol lampiran (paperclip) di samping kotak input pesan.
+  - Gambar (`png`, `jpg`, `webp`): preview thumbnail langsung di chat.
+  - Audio (`mp3`, `wav`, `m4a`, `ogg`): pemutar audio mini di bubble percakapan.
+  - Dokumen (`pdf`, `txt`, `csv`, `doc`): badge dokumen dengan ukuran file.
+- Endpoint multimodal API mandiri:
   - `POST /generate-text` dengan body JSON `{ "prompt": "..." }`
   - `POST /generate-from-image` dengan form-data `image` (File) dan `prompt` (Text, opsional)
   - `POST /generate-from-document` dengan form-data `document` (File: pdf/txt) dan `prompt` (opsional)
@@ -52,7 +57,7 @@ gemini-chatbot-api/
 ├── public/
 │   ├── index.html
 │   ├── style.css
-│   └── script.js
+│   └── app.js
 ├── index.js
 ├── package.json
 ├── .env.example

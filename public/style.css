@@ -407,12 +407,14 @@ aside#sidebar.collapsed-desktop {
 /* User Bubble: ringkas, rapi, dan proporsional */
 .chat-end .chat-bubble,
 .user-bubble {
-  display: inline-block;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
   width: fit-content;
-  max-width: min(72%, 560px);
+  max-width: min(72%, 460px);
   min-width: unset;
   min-height: unset;
-  padding: 0.5rem 0.875rem;
+  padding: 0.45rem 0.75rem;
   border-radius: 1.125rem;
   border-bottom-right-radius: 0.25rem;
   background-color: hsl(var(--primary));
@@ -420,10 +422,21 @@ aside#sidebar.collapsed-desktop {
   font-size: 0.875rem;
   line-height: 1.45;
   text-align: left;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+}
+
+.user-bubble .user-attachment-pill {
+  width: 100%;
+  max-width: 250px;
+  box-sizing: border-box;
+}
+
+.user-bubble .user-text-content {
+  width: 100%;
+  text-align: left;
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06);
 }
 
 /* Hindari wrapper teks memaksa bubble menjadi tinggi */

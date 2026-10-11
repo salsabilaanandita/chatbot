@@ -361,14 +361,44 @@
         </div>
 
         <form id="chat-form" autocomplete="off" class="relative flex flex-col gap-2">
+          <!-- Attached File Preview Bar -->
+          <div id="file-preview-bar" class="hidden flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-border bg-secondary/60 text-xs shadow-sm animate-fade-in">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div id="file-preview-icon" class="h-8 w-8 rounded-lg bg-background border border-border/70 flex items-center justify-center shrink-0 overflow-hidden text-foreground">
+                <!-- Injected via JS -->
+              </div>
+              <div class="min-w-0">
+                <span id="file-preview-name" class="font-medium text-foreground truncate block max-w-[200px] sm:max-w-xs"></span>
+                <span id="file-preview-size" class="text-[10px] text-muted-foreground block"></span>
+              </div>
+            </div>
+            <button type="button" id="remove-file-btn" class="h-6 w-6 rounded-md hover:bg-destructive/10 hover:text-destructive flex items-center justify-center text-muted-foreground transition-colors shrink-0 cursor-pointer" title="Hapus lampiran">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"></path>
+                <path d="m6 6 12 12"></path>
+              </svg>
+            </button>
+          </div>
+
           <div
-            class="relative flex items-end rounded-xl border border-input bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-ring/40 focus-within:border-ring p-1.5">
-            <textarea id="user-input" rows="1" placeholder="Tanya apa saja seputar pelajaran atau tugasmu..." required
-              class="w-full bg-transparent px-2.5 py-1 text-xs sm:text-sm placeholder:text-muted-foreground text-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none"></textarea>
+            class="relative flex items-end rounded-xl border border-input bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-ring/40 focus-within:border-ring p-1.5 gap-1">
+            
+            <!-- Hidden file input -->
+            <input type="file" id="file-input" class="hidden" accept="image/*,audio/*,.pdf,.txt,.doc,.docx,.csv" />
+
+            <!-- Attach File Button -->
+            <button type="button" id="attach-btn" title="Unggah file, gambar, atau audio" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 mb-0.5 cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              </svg>
+            </button>
+
+            <textarea id="user-input" rows="1" placeholder="Tanya apa saja, atau unggah file/gambar/audio..."
+              class="w-full bg-transparent px-2 py-1 text-xs sm:text-sm placeholder:text-muted-foreground text-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none"></textarea>
 
             <!-- Send Button -->
             <button type="submit" id="send-btn" title="Kirim pesan"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:pointer-events-none disabled:opacity-50 shadow-sm shrink-0">
+              class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:pointer-events-none disabled:opacity-50 shadow-sm shrink-0 mb-0.5 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m5 12 7-7 7 7"></path>
@@ -378,7 +408,7 @@
 
             <!-- Stop Button -->
             <button type="button" id="stop-btn" title="Hentikan jawaban"
-              class="hidden inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all shadow-sm shrink-0">
+              class="hidden inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all shadow-sm shrink-0 mb-0.5 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <rect width="16" height="16" x="4" y="4" rx="2"></rect>
               </svg>
@@ -399,7 +429,56 @@
 
   </main>
 
-  <script src="script.js"></script>
+  <!-- ====================================================================
+       SHADCN UI CONFIRMATION DIALOG (MODAL)
+       ==================================================================== -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" role="dialog" aria-modal="true">
+    <!-- Backdrop Overlay with blur -->
+    <div id="confirm-backdrop" class="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"></div>
+
+    <!-- Alert Dialog Content Card -->
+    <div class="relative w-full max-w-md rounded-xl border border-border bg-card p-6 text-card-foreground shadow-2xl transition-all z-10 animate-fade-in sm:max-w-lg">
+      <div class="flex items-start gap-4">
+        <div id="confirm-icon-wrapper" class="h-10 w-10 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0 mt-0.5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            <line x1="10" x2="10" y1="11" y2="17"></line>
+            <line x1="14" x2="14" y1="11" y2="17"></line>
+          </svg>
+        </div>
+        <div class="flex-1 space-y-1">
+          <h3 id="confirm-title" class="text-base font-semibold leading-none tracking-tight text-foreground">
+            Hapus Percakapan?
+          </h3>
+          <p id="confirm-description" class="text-xs sm:text-sm text-muted-foreground leading-relaxed pt-1">
+            Tindakan ini tidak dapat dibatalkan. Percakapan ini akan dihapus secara permanen.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0 mt-6">
+        <button
+          type="button"
+          id="confirm-cancel-btn"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-input bg-background px-4 py-2 text-xs sm:text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer shadow-sm select-none"
+        >
+          Batal
+        </button>
+        <button
+          type="button"
+          id="confirm-action-btn"
+          class="inline-flex h-9 items-center justify-center rounded-lg bg-destructive px-4 py-2 text-xs sm:text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 cursor-pointer shadow-sm select-none"
+        >
+          Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 
 </html>

@@ -20,6 +20,15 @@ const historyCount = document.getElementById('history-count');
 const searchHistoryInput = document.getElementById('search-history-input');
 const currentChatTitle = document.getElementById('current-chat-title');
 
+// File Upload Elements
+const fileInput = document.getElementById('file-input');
+const attachBtn = document.getElementById('attach-btn');
+const filePreviewBar = document.getElementById('file-preview-bar');
+const filePreviewIcon = document.getElementById('file-preview-icon');
+const filePreviewName = document.getElementById('file-preview-name');
+const filePreviewSize = document.getElementById('file-preview-size');
+const removeFileBtn = document.getElementById('remove-file-btn');
+
 // Sidebar & Layout Elements
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -55,6 +64,15 @@ function escapeHtml(str) {
 let sessions = [];
 let currentSessionId = null;
 let currentAbortController = null;
+let currentAttachedFile = null;
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
 
 // ---- Theme Management ------------------------------------------------------
 function initTheme() {
@@ -108,19 +126,78 @@ toggleSidebarBtn.addEventListener('click', () => {
 closeSidebarBtn?.addEventListener('click', closeMobileSidebar);
 sidebarOverlay?.addEventListener('click', closeMobileSidebar);
 
+// ---- Clean LaTeX / Formula Helper ------------------------------------------
+function cleanFormulas(text) {
+  if (!text) return '';
+
+  const subscriptMap = {
+    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+    '+': '₊', '-': '₋'
+  };
+  const superscriptMap = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '+': '⁺', '-': '⁻'
+  };
+
+  // Bersihkan block math $$...$$ dan inline math $...$
+  return text.replace(/\$\$([\s\S]+?)\$\$|\$([^\$\n]+?)\$/g, (match, block, inline) => {
+    let clean = (block || inline || '').trim();
+
+    // Suhu & derajat misal ^\circ C atau ^\circ\text{C}
+    clean = clean.replace(/\^\\circ(?:\\text\{C\}|C)?/g, '°C');
+    clean = clean.replace(/\\circ/g, '°');
+
+    // Subscript misal _{12} atau _2
+    clean = clean.replace(/_\{([0-9\+\-]+)\}/g, (_, num) => {
+      return num.split('').map((c) => subscriptMap[c] || c).join('');
+    });
+    clean = clean.replace(/_([0-9\+\-])/g, (_, num) => subscriptMap[num] || num);
+
+    // Superscript misal ^{2} atau ^2
+    clean = clean.replace(/\^\{([0-9\+\-]+)\}/g, (_, num) => {
+      return num.split('').map((c) => superscriptMap[c] || c).join('');
+    });
+    clean = clean.replace(/\^([0-9\+\-])/g, (_, num) => superscriptMap[num] || num);
+
+    // Hilangkan wrapper text seperti \text{...} atau \mathrm{...}
+    clean = clean.replace(/\\(?:text|mathrm|mathbf)\{([^}]+)\}/g, '$1');
+
+    // Simbol umum matematika
+    clean = clean
+      .replace(/\\times/g, '×')
+      .replace(/\\div/g, '÷')
+      .replace(/\\pm/g, '±')
+      .replace(/\\to|\\rightarrow/g, '→')
+      .replace(/\\le|\\leq/g, '≤')
+      .replace(/\\ge|\\geq/g, '≥')
+      .replace(/\\neq/g, '≠')
+      .replace(/\\approx/g, '≈')
+      .replace(/\\cdot/g, '·');
+
+    // Buang kurung kurawal atau backslash yang tersisa
+    clean = clean.replace(/[{}]/g, '').replace(/\\/g, '');
+
+    return clean;
+  });
+}
+
 // ---- Markdown Formatting & Sanitization ------------------------------------
 function formatContent(rawText) {
+  const cleaned = cleanFormulas(rawText);
   if (window.marked && window.DOMPurify) {
     marked.setOptions({
       breaks: true,
       gfm: true,
     });
-    return DOMPurify.sanitize(marked.parse(rawText));
+    return DOMPurify.sanitize(marked.parse(cleaned));
   }
   const div = document.createElement('div');
-  div.textContent = rawText;
+  div.textContent = cleaned;
   return div.innerHTML;
 }
+
 
 // ---- Sessions & History Management -----------------------------------------
 function loadSessions() {
@@ -150,7 +227,34 @@ function loadSessions() {
 }
 
 function saveSessions() {
-  localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  const sessionsToSave = sessions.map((s) => ({
+    ...s,
+    conversation: s.conversation.map((m) => {
+      if (m.file) {
+        const canSaveBase64 = m.file.size && m.file.size < 1.5 * 1024 * 1024;
+        return {
+          ...m,
+          file: {
+            name: m.file.name,
+            size: m.file.size,
+            mimeType: m.file.mimeType,
+            dataUrl:
+              m.file.mimeType?.startsWith('image/') && m.file.size < 300000
+                ? m.file.dataUrl
+                : null,
+            data: canSaveBase64 ? m.file.data : null,
+          },
+        };
+      }
+      return m;
+    }),
+  }));
+
+  try {
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessionsToSave));
+  } catch (err) {
+    console.warn('LocalStorage limit reached, saving metadata only', err);
+  }
   localStorage.setItem(CURRENT_SESSION_KEY, currentSessionId);
   renderHistoryList(searchHistoryInput.value);
 }
@@ -192,32 +296,90 @@ function switchSession(id) {
   }
 }
 
+// ---- Shadcn UI Confirmation Modal Helper -----------------------------------
+function openConfirmDialog({ title, description, confirmText = 'Hapus', onConfirm }) {
+  const modal = document.getElementById('confirm-modal');
+  const titleEl = document.getElementById('confirm-title');
+  const descEl = document.getElementById('confirm-description');
+  const actionBtn = document.getElementById('confirm-action-btn');
+  const cancelBtn = document.getElementById('confirm-cancel-btn');
+  const backdrop = document.getElementById('confirm-backdrop');
+
+  if (!modal) {
+    if (confirm(description || title)) {
+      onConfirm?.();
+    }
+    return;
+  }
+
+  titleEl.textContent = title;
+  descEl.textContent = description;
+  actionBtn.textContent = confirmText;
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    document.removeEventListener('keydown', handleKeyDown);
+    actionBtn.onclick = null;
+    cancelBtn.onclick = null;
+    backdrop.onclick = null;
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Escape') closeModal();
+  }
+
+  actionBtn.onclick = () => {
+    closeModal();
+    if (typeof onConfirm === 'function') {
+      onConfirm();
+    }
+  };
+
+  cancelBtn.onclick = closeModal;
+  backdrop.onclick = closeModal;
+  document.addEventListener('keydown', handleKeyDown);
+
+  modal.classList.remove('hidden');
+  cancelBtn.focus();
+}
+
 function deleteSession(id, e) {
   if (e) e.stopPropagation();
-  const confirmed = confirm('Hapus percakapan ini dari histori?');
-  if (!confirmed) return;
 
-  sessions = sessions.filter((s) => s.id !== id);
+  openConfirmDialog({
+    title: 'Hapus Percakapan?',
+    description: 'Tindakan ini tidak dapat dibatalkan. Percakapan ini akan dihapus secara permanen dari histori Anda.',
+    confirmText: 'Hapus',
+    onConfirm: () => {
+      sessions = sessions.filter((s) => s.id !== id);
 
-  if (!sessions.length) {
-    createNewSession();
-  } else {
-    if (currentSessionId === id) {
-      currentSessionId = sessions[0].id;
-    }
-    saveSessions();
-    renderCurrentConversation();
-  }
+      if (!sessions.length) {
+        createNewSession();
+      } else {
+        if (currentSessionId === id) {
+          currentSessionId = sessions[0].id;
+        }
+        saveSessions();
+        renderCurrentConversation();
+      }
+    },
+  });
 }
 
 function clearAllHistory() {
   if (!sessions.length) return;
-  const confirmed = confirm('Apakah Anda yakin ingin menghapus SEMUA histori percakapan?');
-  if (!confirmed) return;
 
-  sessions = [];
-  createNewSession();
+  openConfirmDialog({
+    title: 'Hapus Semua Histori?',
+    description: 'Apakah Anda yakin ingin menghapus SEMUA histori percakapan? Tindakan ini tidak dapat dibatalkan.',
+    confirmText: 'Hapus Semua',
+    onConfirm: () => {
+      sessions = [];
+      createNewSession();
+    },
+  });
 }
+
 
 // Render Histori Searching & List
 function renderHistoryList(filterQuery = '') {
@@ -306,15 +468,72 @@ function renderCurrentConversation() {
   } else {
     suggestionsBox.classList.add('hidden');
     session.conversation.forEach((msg) => {
-      appendMessage(msg.role === 'user' ? 'user' : 'bot', msg.text, false, false);
+      appendMessage(
+        msg.role === 'user' ? 'user' : 'bot',
+        msg.text,
+        false,
+        false,
+        msg.file
+      );
     });
   }
 
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+// Render lampiran dalam balon chat user (kompak, rapi, dan proporsional)
+function renderAttachmentHtml(file) {
+  if (!file) return '';
+  if (file.mimeType?.startsWith('image/') && file.dataUrl) {
+    return `<div class="user-attachment-preview mb-1.5"><img src="${file.dataUrl}" alt="${escapeHtml(
+      file.name
+    )}" class="max-w-[220px] max-h-44 rounded-lg object-contain bg-black/10 border border-white/10" /></div>`;
+  }
+  if (file.mimeType?.startsWith('audio/')) {
+    return `
+      <div class="user-attachment-pill mb-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/15 flex flex-col gap-1 max-w-[240px]">
+        <div class="flex items-center gap-1.5 text-xs font-medium truncate">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 opacity-80">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+          <span class="truncate" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+        </div>
+        ${
+          file.dataUrl
+            ? `<audio controls src="${file.dataUrl}" class="h-6 w-full max-w-[220px] mt-0.5"></audio>`
+            : ''
+        }
+      </div>
+    `;
+  }
+  return `
+    <div class="user-attachment-pill mb-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/15 flex items-center gap-2 max-w-[250px] text-left">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 opacity-80">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <div class="min-w-0 flex-1">
+        <div class="font-medium text-xs truncate leading-snug" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+        ${
+          file.size
+            ? `<div class="text-[10px] opacity-75 leading-none mt-0.5">${formatBytes(file.size)}</div>`
+            : ''
+        }
+      </div>
+    </div>
+  `;
+}
+
 // ---- Append Bubble Message -------------------------------------------------
-function appendMessage(sender, text, isPending = false, shouldScroll = true) {
+function appendMessage(
+  sender,
+  text,
+  isPending = false,
+  shouldScroll = true,
+  file = null
+) {
   const wrapper = document.createElement('div');
   wrapper.className = `chat ${sender === 'user' ? 'chat-end' : 'chat-start'} animate-fade-in`;
 
@@ -364,10 +583,20 @@ function appendMessage(sender, text, isPending = false, shouldScroll = true) {
       setupCopyButton(copyBtn, text);
     }
   } else {
-    // User message - dibuat rapi tanpa whitespace template literal
+    // User message
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble user-bubble shadow-sm';
-    bubble.textContent = text.trim();
+
+    let contentHtml = '';
+    if (file) {
+      contentHtml += renderAttachmentHtml(file);
+    }
+    if (text && text.trim()) {
+      contentHtml += `<div class="user-text-content whitespace-pre-wrap break-words">${escapeHtml(
+        text.trim()
+      )}</div>`;
+    }
+    bubble.innerHTML = contentHtml;
     wrapper.appendChild(bubble);
   }
 
@@ -482,18 +711,124 @@ function stopGeneration() {
   }
 }
 
-// ---- Send Message Handler (Streaming Real-time & Fast Response) ------------
-async function sendMessage(userMessage) {
-  const text = (userMessage || '').trim();
-  if (!text) return;
+// ---- File Attachment Preview Handlers ------------------------------------
+attachBtn?.addEventListener('click', () => {
+  fileInput.click();
+});
+
+fileInput?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.size > 20 * 1024 * 1024) {
+    alert('Ukuran file maksimal adalah 20 MB.');
+    fileInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const dataUrl = event.target.result;
+    const base64Data = dataUrl.split(',')[1];
+    
+    let mimeType = file.type || '';
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.pdf')) {
+      mimeType = 'application/pdf';
+    } else if (lowerName.endsWith('.png')) {
+      mimeType = 'image/png';
+    } else if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+      mimeType = 'image/jpeg';
+    } else if (lowerName.endsWith('.webp')) {
+      mimeType = 'image/webp';
+    } else if (lowerName.endsWith('.mp3')) {
+      mimeType = 'audio/mp3';
+    } else if (lowerName.endsWith('.wav')) {
+      mimeType = 'audio/wav';
+    } else if (lowerName.endsWith('.m4a')) {
+      mimeType = 'audio/m4a';
+    } else if (lowerName.endsWith('.ogg')) {
+      mimeType = 'audio/ogg';
+    } else if (!mimeType) {
+      mimeType = 'application/octet-stream';
+    }
+
+    currentAttachedFile = {
+      name: file.name,
+      size: file.size,
+      mimeType,
+      data: base64Data,
+      dataUrl,
+    };
+
+    renderFilePreview(currentAttachedFile);
+  };
+  reader.readAsDataURL(file);
+});
+
+function renderFilePreview(file) {
+  if (!file) return;
+  filePreviewName.textContent = file.name;
+  filePreviewSize.textContent = formatBytes(file.size);
+
+  if (file.mimeType.startsWith('image/')) {
+    filePreviewIcon.innerHTML = `<img src="${file.dataUrl}" class="h-full w-full object-cover rounded-md" alt="Preview" />`;
+  } else if (file.mimeType.startsWith('audio/')) {
+    filePreviewIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+        <path d="M9 18V5l12-2v13"></path>
+        <circle cx="6" cy="18" r="3"></circle>
+        <circle cx="18" cy="16" r="3"></circle>
+      </svg>
+    `;
+  } else {
+    filePreviewIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+    `;
+  }
+
+  filePreviewBar.classList.remove('hidden');
+}
+
+function clearAttachedFile() {
+  currentAttachedFile = null;
+  if (fileInput) fileInput.value = '';
+  filePreviewBar.classList.add('hidden');
+  filePreviewIcon.innerHTML = '';
+}
+
+removeFileBtn?.addEventListener('click', clearAttachedFile);
+
+// ---- Send Message Handler (Streaming Real-time & Multimodal) ----------------
+async function sendMessage(userMessage, attachedFileParam = null) {
+  const fileToSend = attachedFileParam || currentAttachedFile;
+  clearAttachedFile();
+
+  let text = (userMessage || '').trim();
+  if (!text && !fileToSend) return;
+
+  // Default teks jika pengguna hanya mengirim file tanpa teks
+  if (!text && fileToSend) {
+    if (fileToSend.mimeType.startsWith('image/')) {
+      text = 'Tolong analisis dan jelaskan gambar yang saya unggah ini.';
+    } else if (fileToSend.mimeType.startsWith('audio/')) {
+      text = 'Tolong buatkan transkrip dan jelaskan isi rekaman audio yang saya unggah ini.';
+    } else {
+      text = 'Tolong pelajari dan jelaskan isi dokumen/file yang saya unggah ini.';
+    }
+  }
 
   const session = getCurrentSession();
   if (!session) return;
 
-  // Auto-generate title dari prompt pertama
+  // Auto-generate title dari prompt pertama atau nama file
   if (!session.conversation.length || session.title === 'Percakapan Baru') {
-    const cleanTitle = text.replace(/\n/g, ' ').slice(0, 32);
-    session.title = cleanTitle + (text.length > 32 ? '...' : '');
+    const titleSource = text || fileToSend?.name || 'Percakapan Baru';
+    const cleanTitle = titleSource.replace(/\n/g, ' ').slice(0, 32);
+    session.title = cleanTitle + (titleSource.length > 32 ? '...' : '');
     currentChatTitle.textContent = session.title;
   }
 
@@ -504,8 +839,8 @@ async function sendMessage(userMessage) {
     messagesContainer.innerHTML = '';
   }
 
-  appendMessage('user', text);
-  session.conversation.push({ role: 'user', text });
+  appendMessage('user', text, false, true, fileToSend);
+  session.conversation.push({ role: 'user', text, file: fileToSend });
   input.value = '';
   resetInputHeight();
   saveSessions();
