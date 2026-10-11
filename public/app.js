@@ -680,11 +680,28 @@ function updatePendingMessage(wrapper, text, isError = false) {
 
 function autoResizeInput() {
   input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  const newHeight = Math.min(input.scrollHeight, 160);
+  input.style.height = newHeight + 'px';
+
+  const composerBox = input.closest('.composer-box');
+  if (composerBox) {
+    if (newHeight > 42) {
+      composerBox.classList.remove('items-center');
+      composerBox.classList.add('items-end');
+    } else {
+      composerBox.classList.remove('items-end');
+      composerBox.classList.add('items-center');
+    }
+  }
 }
 
 function resetInputHeight() {
   input.style.height = 'auto';
+  const composerBox = input.closest('.composer-box');
+  if (composerBox) {
+    composerBox.classList.remove('items-end');
+    composerBox.classList.add('items-center');
+  }
 }
 
 function setGenerating(generating) {

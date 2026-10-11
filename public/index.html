@@ -381,24 +381,24 @@
           </div>
 
           <div
-            class="relative flex items-end rounded-xl border border-input bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-ring/40 focus-within:border-ring p-1.5 gap-1">
+            class="composer-box relative flex items-center rounded-xl border border-input bg-card shadow-sm transition-all focus-within:ring-2 focus-within:ring-ring/40 focus-within:border-ring p-1 sm:p-1.5 gap-1 min-h-[44px]">
             
             <!-- Hidden file input -->
             <input type="file" id="file-input" class="hidden" accept="image/*,audio/*,.pdf,.txt,.doc,.docx,.csv" />
 
             <!-- Attach File Button -->
-            <button type="button" id="attach-btn" title="Unggah file, gambar, atau audio" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 mb-0.5 cursor-pointer">
+            <button type="button" id="attach-btn" title="Unggah file, gambar, atau audio" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
               </svg>
             </button>
 
-            <textarea id="user-input" rows="1" placeholder="Tanya apa saja, atau unggah file/gambar/audio..."
+            <textarea id="user-input" rows="1" placeholder="Tanya apa saja atau unggah berkas..."
               class="w-full bg-transparent px-2 py-1 text-xs sm:text-sm placeholder:text-muted-foreground text-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none"></textarea>
 
             <!-- Send Button -->
             <button type="submit" id="send-btn" title="Kirim pesan"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:pointer-events-none disabled:opacity-50 shadow-sm shrink-0 mb-0.5 cursor-pointer">
+              class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:pointer-events-none disabled:opacity-50 shadow-sm shrink-0 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m5 12 7-7 7 7"></path>
@@ -408,20 +408,20 @@
 
             <!-- Stop Button -->
             <button type="button" id="stop-btn" title="Hentikan jawaban"
-              class="hidden inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all shadow-sm shrink-0 mb-0.5 cursor-pointer">
+              class="hidden inline-flex h-8 w-8 items-center justify-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all shadow-sm shrink-0 cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <rect width="16" height="16" x="4" y="4" rx="2"></rect>
               </svg>
             </button>
           </div>
-          <div class="flex items-center justify-between px-1 text-[11px] text-muted-foreground select-none">
+          <div class="flex items-center justify-between px-1 text-[10px] sm:text-[11px] text-muted-foreground select-none gap-2">
             <span class="hidden sm:inline">Tekan <kbd
                 class="font-mono bg-muted px-1 py-0.5 rounded text-[10px] text-foreground border border-border">Enter</kbd>
               untuk kirim, <kbd
                 class="font-mono bg-muted px-1 py-0.5 rounded text-[10px] text-foreground border border-border">Shift+Enter</kbd>
-              untuk baris baru</span>
-            <span class="sm:hidden">Chatbot AI siap membantu</span>
-            <span class="truncate ml-auto">Verifikasi jawaban penting</span>
+              baris baru</span>
+            <span class="sm:hidden truncate">Chatbot AI siap membantu</span>
+            <span class="truncate ml-auto shrink-0">Verifikasi jawaban penting</span>
           </div>
         </form>
       </div>
